@@ -13,7 +13,8 @@ In this class, you will use PANDA to investigate the dynamic behavior of program
 Further, whole system activity can be recorded and replayed, which is a powerful ability. Various analysis plugins that run on the execution replay allow visibility into the emulated guest and provide information about what is going on there. Reverse Engineering with PANDA is typically an iterative process, replaying a recorded execution over and over under different plugins and inspecting output to accumulate better and more complete understanding of behavior.
 
 <img src="images/panda_logo.png" style="width: 30%"/>
-`https://panda.re`
+
+https://panda.re
 
 ## Overview
 
