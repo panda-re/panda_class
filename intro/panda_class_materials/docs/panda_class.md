@@ -78,7 +78,7 @@ Now, from within that docker container, we will use PANDA to boot an operating s
 
 Start a timer and then enter the following in your docker shell.
 
-    root@ac6aadd740c8:/# panda-system-i386 -nographic /panda_class_materials/qcows/wheezy.qcow2 
+    panda-system-i386 -nographic /panda_class_materials/qcows/wheezy.qcow2 
 
 After a few seconds, you should see the Linux `grub` boot screen. Just wait a little longer and the Linux operating system will start to boot. 
 
@@ -119,7 +119,7 @@ For refererence, booting a 64-bit more modern version of Linux under Vmware Fusi
 
 **CUE #4: Log into that Linux guest.**
 
-Finally, go ahead and log in with username `root` and password `root`. You should see a prompt line like this:
+Finally, go ahead and log in with username `root` and password `root`. You should see a prompt line like this for the guest OS (note how it says `debian-i386`, unlike your docker container's prompt):
 
         root@debian-i386:~# 
 
@@ -187,7 +187,7 @@ You can replay all that activity with the following command from the docker shel
 
 **CUE #9: Replay the execution of those three commands you entered into the guest**
 
-    root@ac6aadd740c8:/# panda-system-i386 -replay commands 
+    panda-system-i386 -replay commands 
 
 You will see output indicating replay progress: percent of nondeterminism log replayed, instruction count, etc. It will look something like this.
 
@@ -250,7 +250,8 @@ There are simple things we can do to peek into that replay, to get more out of i
 **CUE #12: Replay again, writing out a trace of all the code that executes, system-wide**
 
 ```
-root@ac6aadd740c8:/# panda-system-i386 -replay commands -d in_asm,rr,int |& less
+# panda-system-i386 -replay commands -d in_asm,rr,int |& less
+
 loading snapshot
 ... done.
 opening nondet log for read :   ./commands-rr-nondet.log
@@ -313,12 +314,13 @@ Let's use some PANDA plugins to get a little more out of that replay. First, we'
 
 **CUE #13: Run your commands replay with the `asidstory` plugin using this command-line**
 
-    root@ac6aadd740c8:/# panda-system-i386 -replay commands -os linux-32-debian:3.2.0-4-686-pae -panda asidstory
+    panda-system-i386 -replay commands -os linux-32-debian:3.2.0-4-686-pae -panda asidstory
 
 You should see the replay scroll by as before. It will take a little longer this time, since now an analysis is happening alongside thre replay. After it completes, you can inspect the output which is in the file `asidstory`. Your output should look somewhat like the following.
 
 ```
-root@ac6aadd740c8: cat asidstory 
+# cat asidstory 
+
    Count   Pid              Name/tid      Asid     First          Last
      172  2506          [ps  / 2506]   6f34000  12249520  ->  24314310
      129  2505          [ls  / 2505]   6f3c000   1963133  ->  10908122
@@ -364,7 +366,7 @@ Scroll back in your terminal to see what some of those boot messages were. Note 
 
 **CUE #15: Replaying using the `stringsearch` plugin**
 
-    root@ac6aadd740c8:/# panda-system-i386 -replay /panda_class_materials/replays/boot -panda stringsearch:str="Linux version 3.2.0-4-686-pae,verbose=1"
+    panda-system-i386 -replay /panda_class_materials/replays/boot -panda stringsearch:str="Linux version 3.2.0-4-686-pae,verbose=1"
 
 You should see output something like this.
 
@@ -411,7 +413,7 @@ Now we are going to use the `stringsearch` output to fashion a boot log extracto
 
 **CUE #16: Create `tap_points.txt` file required by `textprinter`**
     
-    root@ac6aadd740c8:/# cat <<EOF > tap_points.txt
+    cat <<EOF > tap_points.txt
     0
     c11e43e9 c11e077b
     EOF
@@ -420,7 +422,7 @@ And then run the `textprinter` plugin on your replay.
 
 **CUE #17: Replay using `textprinter` to collect tap point data, i.e., boot log messages.** 
 
-    root@ac6aadd740c8:/# panda-system-i386 -replay /panda_class_materials/replays/boot -panda textprinter
+    panda-system-i386 -replay /panda_class_materials/replays/boot -panda textprinter
 
 You can safely halt replay at around 25% by pressing `Ctrl-C`.  Don't worry you will still get plenty of log messages. The output of `textprinter` is in the file `read_tap_buffers.txt.gz` which you can look at with `zcat`, if you like, but it is a bit hard to follow. Instead, we'll use the `render_log.py` script provided in the `panda_class_materials` to reconstruct the log.  Here's the contents of that script, in case you are curious.  It's quite simple.  
 
@@ -438,7 +440,7 @@ Use it now, using the following cmdline, to extract boot log out of `textprinter
 
 **CUE #18: Reconstruct boot logs using script `render_log.py`.**
 
-    root@ac6aadd740c8:/# zcat read_tap_buffers.txt.gz | python /panda_class_materials/scripts/render_log.py | less
+    zcat read_tap_buffers.txt.gz | python /panda_class_materials/scripts/render_log.py | less
     
 Congratulations again! You just built your first introspection gadget for PANDA. 
 
@@ -462,7 +464,7 @@ Let's peer a little closer into the activity of the new program `ignorame`. Firs
 
 Use these commands to focus on just `ignorame` in that output. 
 
-     root@ac6aadd740c8:/# grep ignorame asidstory | grep ">"
+     grep ignorame asidstory | grep ">"
        60  2797  [bash ignorame  / 27   632d000  53546067  ->  58119005
        50  2792    [ignorame  / 2792]   632a000  23583905  ->  27478909
        48  2788    [ignorame  / 2788]   57d0000   3774483  ->   7493465
@@ -473,14 +475,15 @@ Now use the plugin called `syshist`, which outputs a histogram of counts for sys
 
 **CUE #22: Run PANDA with the `syshist` plugin to get per-process system call stats**
   
-    root@ac6aadd740c8:/# panda-system-i386 -replay /panda_class_materials/replays/commands_wtf -os linux-32-debian:3.2.0-4-686-pae -panda syscalls2:load-info=1 -panda syshist
+    panda-system-i386 -replay /panda_class_materials/replays/commands_wtf -os linux-32-debian:3.2.0-4-686-pae -panda syscalls2:load-info=1 -panda syshist
 
 This plugin, like `asidstory`, produces output in a file of its own name. Let's look at the subset of output for that 1st `ignorame` process.
 
 **CURE #23: Examine histogram of system calls for `ignorame`**
 
 ```
-root@ac6aadd740c8:/# grep 57d0000 syshist 
+# grep 57d0000 syshist 
+
 57d0000 sys_read 2
 57d0000 sys_write 2
 57d0000 sys_open 4
@@ -503,14 +506,15 @@ We can get a little more insight into what is going on by using the `filemon` pl
 
 **CUE #24: Running PANDA with the `filemon` plugin to capture file activity.**
 
-    root@ac6aadd740c8:/# panda-system-i386 -replay /panda_class_materials/replays/commands_wtf -os linux-32-debian:3.2.0-4-686-pae -panda filemon
+    panda-system-i386 -replay /panda_class_materials/replays/commands_wtf -os linux-32-debian:3.2.0-4-686-pae -panda filemon
 
 This plugin will log all file read and writes. We can restrict our attention to just output for that first version of the process `ignorame` using its pid.  
 
 **CUE #25: Examine file activity for `ignorame`**
 
 ```
-root@ac6aadd740c8:/# grep 2788 filemon 
+# grep 2788 filemon 
+
 read-enter-2788-2788-3-ignorame-26 "/lib/i386-linux-gnu/i686/cmov/libc-2.13.so"
 read-return-2788-2788-3-ignorame-26
 read-enter-2788-2788-4-ignorame-31 "/home/joeuser/.ssh/id_rsa"
@@ -526,7 +530,8 @@ Ok we are getting somewhere. This output is pretty sketchy. The program `ignoram
 **CUE #26: Examine the file reads and writes by `ignorame` pid 2788 and hypothesize what might be going on.**
 
 ```
-root@ac6aadd740c8:/# cat read-return-2788-2788-4-ignorame-31
+# cat read-return-2788-2788-4-ignorame-31
+
 -----BEGIN RSA PRIVATE KEY-----
 MIIEpAIBAAKCAQEA0KXYGCTbeIgv+ljVh4QoiskVjJhG0+L+hudlTkOzpE3w8YSP
 SKUdx5jWsxe4I/8JthcCqMA/zvbIGWIE5ciYmwGgqnGQiEyzRmHk39857FrxM8gL
@@ -537,7 +542,9 @@ fQnOq5Wd35ZsiPtTgXxOx0gnklD3ga5jpJbELwIDAQABAoIBAHEGxi8eGD4NGGB3
 qwSEVSoJkEDfZM73koYl570j87a3+iP7eVsTBzTO2M+fs8LcL7iScoBT1L0a9n65
 mImZxwGBOjXa2z7avesMsN2NoWUmRq+UWKj6GnUSoLgSreiU2PdSzDvr+lDQvs4i
 ...
-root@ac6aadd740c8:/# cat write-enter-2788-2788-1-ignorame-35
+
+cat write-enter-2788-2788-1-ignorame-35
+
 00 31 33 19 39 01 14 
 73 7b 41 67 49 24 27 2d 17 18 4c 18 37 27 42 3a 0c 1f 3a 0b 30 23 42 21 1b 0f 41 67 49 4b 4f 60 13 1f 25 0f 14 27 2b 28 1f 17 27 09 25 37 27 2b 6e 1d 34 13 23 25 36 08 3b 1f 0b 3c 4f 0a 08 3c 36 62 3d 25 0d 15 09 3c 34 1c 04 0d 54 4d 2e 41 36 23 08 26 30 0d 2d 10 2e 13 5f 3d 5c 3f 31 3a 54 05 27 1f 00 1e 57 00 09 25 14 2f 50 2f 4d 52 14 22 04 29 27 17 2f 2b 71 2c 1a 28 2d 21 35 23 1b 63 0f 23 3d 0b 15 2d 39 27 02 0d 35 0f 27 13 24 04 01 02 0f 55 5b 52 6b 61 2a 38 1c 2b 5a 0d 12 5c 03 23 0a 34 12 23 0f 2c 5c 25 2e 1e 15 24 12 27 2b 0e 0b 36 20 21 34 3d 43 27 12 3e 1b 26 6d 63 1f 22 2f 49 16 21 6f 05 15 22 2a 25 36 5a 6a 1c 5f 7d 13 2d 06 0e 6e 25 36 09 30 25 08 1f 67 01 66 2d 0e 15 07 27 6d 3f 02 0f 09 0b 54 29 
 06 2f 01 09 56 12 15 2b 1b 3d 1d 29 0a 2d 01 5e 75 0c 01 2f 5c 25 20 1c 3d 67 1b 02 57 33 
@@ -550,12 +557,13 @@ Note that we also know that `nc` was running periodically, from our inspection o
 
 **CUE #27: Run PANDA with the `network` plugin.**
 
-    root@ac6aadd740c8:/# panda-system-i386 -replay /panda_class_materials/replays/commands_wtf -panda network:file=commands_wtf.pcap
+    panda-system-i386 -replay /panda_class_materials/replays/commands_wtf -panda network:file=commands_wtf.pcap
 		
 One way of looking at this network capture is with `tcpick`:
 
 ```
-root@ac6aadd740c8:/# tcpick -C -yP -r commands_wtf.pcap | less -R
+# tcpick -C -yP -r commands_wtf.pcap | less -R
+
 Timeout for connections is 600
 tcpick: reading from commands_wtf.pcap
 1      SYN-SENT       10.0.2.15:36637 > 192.168.80.1:5144
@@ -571,7 +579,8 @@ tcpick: reading from commands_wtf.pcap
 That's right. The output of `ignorame` in the form of those hex numbers is getting sent out on the network. The `network` plugin actually provides a little more info in the form of comments attached to packets. These comments indicate the instruction count at which network packets went out. If we examine this pcap using `less`, we see a lot of garbage but also what is clearly those hex numbers being output on the network and, most important, we can see where in the replay this is happening.
 
 ```
-root@ac6aadd740c8:/# less commands_wtf.pcap 
+# less commands_wtf.pcap 
+
 ...
 ...Guest instruction count: 9369201...
 ...
@@ -587,7 +596,8 @@ If you aren't good at comparing large numbers, there's obviously a better way to
 
 
 ```
-root@ac6aadd740c8:/# python /panda_class_materials/scripts/find_procs_at_instr_count.py 9369201 ./asidstory 
+# python /panda_class_materials/scripts/find_procs_at_instr_count.py 9369201 ./asidstory 
+
       73  2444        [bash  / 2444]   533d000   2100932  ->  52321843
       65  2772        [bash  / 2772]   6f20000    168545  ->  59594525
       58  2789     [bash nc  / 2789]   784c000   3831722  ->  10075072
@@ -618,21 +628,22 @@ Let's make this concrete by using PANDA's taint analysis to analyze this encrypt
 
 **CUE #31: Use PANDA `scissors` plugin to extract a smaller section replay just containing `ignorame` execution**
 
-    root@ac6aadd740c8:/# panda-system-i386 -replay /panda_class_materials/replays/commands_wtf -panda scissors:name=ignorame,start=3778000,end=7484000
+    panda-system-i386 -replay /panda_class_materials/replays/commands_wtf -panda scissors:name=ignorame,start=3778000,end=7484000
 
 
 This should create a scissored recording in the current directory called `ignorame`. We are now going to use two plugins that rely upon the `taint2` plugin's underlying taint analysis.  `file_taint` will provide us the ability to apply taint labels to a particular file being read. The first byte in the file gets the label `1`, the second gets the label `2`, which we call *positional* labels. We will be applying those labels to the bytes read from `id_rsa`. The `tainted_instr` plugin identifies and logs all instructions that use that tainted data. 
 
 **CUE #32: Replay `ignorame` with `file_taint` and `tainted_instr` plugins** 
   
-     root@ac6aadd740c8:/# panda-system-i386 -replay ignorame -os linux-32-debian:3.2.0-4-686-pae -pandalog ignorame.plog  -panda file_taint:filename=id_rsa,pos=1 -panda tainted_instr
+     panda-system-i386 -replay ignorame -os linux-32-debian:3.2.0-4-686-pae -pandalog ignorame.plog  -panda file_taint:filename=id_rsa,pos=1 -panda tainted_instr
 
 The output of `tainted_instr` goes in a file named `ignorame.plog`. This log is in the `pandalog` format, which uses Google protocol buffers under the hood but adds compression as well as the ability to rewind and fast forward. You can examine this log directly using a Python module that is installed with PANDA.
 
 **CUE #33: Simple pandalog viewing with `plog_reader`**
 
 ```
-root@ac6aadd740c8:/# python -m pandare.plog_reader ignorame.plog | less
+# python -m pandare.plog_reader ignorame.plog | less
+
 {
   "pc": "3077637219", 
   "taintedInstr": {
@@ -668,7 +679,8 @@ It isn't advisable to use `plog_reader` to peruse this log, since it is a lot of
 **CUE #33: Pandalog analysis via script.**
 
 ```
-root@ac6aadd740c8:/# python /panda_class_materials/scripts/taint.py ./ignorame.plog 
+# python /panda_class_materials/scripts/taint.py ./ignorame.plog 
+
 tainted instr @ pc=80486f7 count=75555
 tainted instr @ pc=80486fa count=50370
 tainted instr @ pc=8048709 count=75555
