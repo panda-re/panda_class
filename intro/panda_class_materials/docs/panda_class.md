@@ -39,9 +39,13 @@ NOTE: for the remainder of this class, we will refer to all of these various com
 
 You'll need a bunch of support files to take this class.  Everything in the `panda_class_materials` directory. The class organizer will tell you how to get this either from a USB drive being passed around the class or from a network file share or the internet or whatever. Please copy that directory into your *home* directory. If you are on Linux or OSX, this will mean the materials ends up in `~/panda_class_materials`.  If you are on Windows, they should be in `C:\User\YourUsername`, i.e., your home directory.
 
+The class materials are available at [https://panda.re/secret/pc2022.zip](https://panda.re/secret/pc2022.zip), download this file and unzip it.
+
 ### Docker
 
-You will be running PANDA inside a `docker` container. If you don't already have docker installed, you will need to get it.  Best if you google around to figure out how to get that installed rather than following out-of-date directions here. 
+You will be running PANDA inside a `docker` container. If you don't already have docker installed, you will need to get it.  Best if you google around to figure out how to get that installed rather than following out-of-date directions here.
+
+If you know what you're doing and would perfer to use [podman](https://podman.io) over Docker, it should work as well.
 
 ----    
 ### PANDA Docker image
@@ -150,7 +154,7 @@ PANDA should respond with
     (qemu) writing snapshot:	./commands-rr-snp
     opening nondet log for write :	./commands-rr-nondet.log
 
-Now switch from the monitor back to the Linux guest.
+Now switch from the monitor back to the Linux guest by pressing `Ctrl-a` followed by the letter `c` again.
 
     root@debian-i386:~# 
     
@@ -397,7 +401,7 @@ boot:   426892948 (  9.00%) instrs.   53.04 sec.  0.18 GB ram.
 ...
 ```
 
-You can stop the replay after you have seen that big block of read/write matches and start seeing just the percent progress indicators. You won't see any more matches.
+You can stop the replay after you have seen that big block of read/write matches and start seeing just the percent progress indicators. You won't see any more matches. To stop the replay, you can press `Ctrl-C`.
 
 What that output is telling you is that `stringsearch` worked as advertised. It found a bunch of replay instruction counts at which the string you gave it to search for was observed passing through a memory read or write instruction. The hex numbers near the end of each match are the program counter of the read or write instruction and the first address on the callstack, indicating some of the context from which this read or write instruction was executed.  Note that what we really have here in the output of `stringsearch` is a trace of the data-flow journey this particular log message experienced. Probably the later matches correspond to kernel print function handling of the string which we may want to hook as our gadget. 
 
@@ -407,10 +411,10 @@ Now we are going to use the `stringsearch` output to fashion a boot log extracto
 
 **CUE #16: Create `tap_points.txt` file required by `textprinter`**
     
-    root@ac6aadd740c8:/# cat > tap_points.txt
+    root@ac6aadd740c8:/# cat <<EOF > tap_points.txt
     0
     c11e43e9 c11e077b
-    Ctrl-C
+    EOF
 
 And then run the `textprinter` plugin on your replay.
 
@@ -420,7 +424,7 @@ And then run the `textprinter` plugin on your replay.
 
 You can safely halt replay at around 25% by pressing `Ctrl-C`.  Don't worry you will still get plenty of log messages. The output of `textprinter` is in the file `read_tap_buffers.txt.gz` which you can look at with `zcat`, if you like, but it is a bit hard to follow. Instead, we'll use the `render_log.py` script provided in the `panda_class_materials` to reconstruct the log.  Here's the contents of that script, in case you are curious.  It's quite simple.  
 
-```
+```py
 import sys
 import fileinput
 for line in fileinput.input():
@@ -443,6 +447,8 @@ Congratulations again! You just built your first introspection gadget for PANDA.
 As we noted earlier, PANDA's record/replay allows one to share interesting whole-system activity with another reverse engineer. There is just such a recording in `/panda_class_materials/replays/commands_wtf`. This was created by a colleague trying out an early version of the activities in this class. She followed the directions above to create a recording of executing those three commands, in sequence, just as you did earlier. However, she was concerned about the output she got from the `asidstory` plugin. Let's look into it.  
 
 **CUE #19: Run PANDA with `asidstory` on the `commands_wtf` replay now.**
+
+Modify and run the command you previously used to run `asidstory`. This time, set the replay argument to `panda_class_materials/replays/commands_wtf` to use the provided recording.
 
 Now take a look at the output in the file `asidstory`. It looks pretty different from before, right? You can still see the three commands running: `ls`, `ps`, and `netstat`. But now there's some periodic activity layered on top and a bunch more `bash` processes than before. We also see a program called `ignorame` running, which sounds weird. Plus a few we may find familiar: `nc` and `sleep`.
 
@@ -608,7 +614,7 @@ This piece of malware, `ignorame` happens to be tiny and quite simple. But what 
 
 PANDA has a sophisticated dynamic taint analysis built in that can help here. The taint system allows you to apply labels to data in a replay and then track those labels as data flows through the system. Labels are tracked through copies, between processes, into and out of the kernel. When computation happens involving tainted data, the system collects sets of labels indicating derivation from labeled taint sources. 
 
-Let's make this concrete by using PANDA's taint to analyze this encryption a little. Be warned that taint analysis is slow since it is powerful and precise. It will slow down your replay by 20-40x. Thus, first, we will want to pull out a small portion of the replay to work with, if possible. Let's use PANDA's `scissors` plugin to do that. We merely specify the start and end instruction count (see `asidstory` subset from CUE #21) and a name for the new replay files. Probably, you want to subtract a few 10s of thousands of instructions from the start instruction and add a few tens of thousands to the end instruction, just to be safe.
+Let's make this concrete by using PANDA's taint analysis to analyze this encryption a little. Be warned that taint analysis is slow since it is powerful and precise. It will slow down your replay by 20-40x. Thus, first, we will want to pull out a small portion of the replay to work with, if possible. Let's use PANDA's `scissors` plugin to do that. We merely specify the start and end instruction count (see `asidstory` subset from CUE #21) and a name for the new replay files. Probably, you want to subtract a few 10s of thousands of instructions from the start instruction and add a few tens of thousands to the end instruction, just to be safe.
 
 **CUE #31: Use PANDA `scissors` plugin to extract a smaller section replay just containing `ignorame` execution**
 
@@ -621,7 +627,7 @@ This should create a scissored recording in the current directory called `ignora
   
      root@ac6aadd740c8:/# panda-system-i386 -replay ignorame -os linux-32-debian:3.2.0-4-686-pae -pandalog ignorame.plog  -panda file_taint:filename=id_rsa,pos=1 -panda tainted_instr
 
-The output of `tainted_instr` goes in a file named `ignorame.plog`. This log is in the `pandalog` format, which uses Google protocol buffers under the hood but adds compression as well as the ability to rewind and fast forward. You can examine this log directly with the script `plog_reader.py`:
+The output of `tainted_instr` goes in a file named `ignorame.plog`. This log is in the `pandalog` format, which uses Google protocol buffers under the hood but adds compression as well as the ability to rewind and fast forward. You can examine this log directly using a Python module that is installed with PANDA.
 
 **CUE #33: Simple pandalog viewing with `plog_reader`**
 
@@ -702,7 +708,7 @@ Another output of the script is a dump of the so-called *taint compute number* o
 
 One final note.  The script to process this pandalog is a less than thirty lines thanks to the nice abstraction of protocol buffers.  Here it is in its entirety. 
 
-```
+```py
 import sys
 import itertools
 from google.protobuf.json_format import MessageToJson
@@ -732,9 +738,9 @@ for pc in pcs:
 
 ### PANDA: Plaid Mode
 
-The real power of PANDA is in writing plugins. This requires programming in C, C++, or (coming soon!) Python. We won't cover that in this class, but you are encourage to read the PANDA manual, and read the code used to implement the various plugins you used in this class to get started. Plugins live in `/panda/panda/plugins/NAME_OF_PLUGIN`.  
+The real power of PANDA is in writing plugins. This requires programming in C, C++, or Python 3. We won't cover that in this class, but you are encourage to read the PANDA manual, the [Python documentation](https://docs.panda.re) and read the code used to implement the various plugins you used in this class to get started. Plugins live in `/panda/panda/plugins/NAME_OF_PLUGIN` and the [PANDA source code is on Github](https://github.com/panda-re/panda).
 
-Feel free to get in touch if you have questions, accolades, or complaints about PANDA.  
+Feel free to get in touch if you have questions, accolades, or complaints about PANDA.
 
 
 
