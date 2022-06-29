@@ -366,7 +366,7 @@ Scroll back in your terminal to see what some of those boot messages were. Note 
 
 **CUE #15: Replaying using the `stringsearch` plugin**
 
-    panda-system-i386 -replay /panda_class_materials/replays/boot -panda stringsearch:str="Linux version 3.2.0-4-686-pae,verbose=1"
+    panda-system-i386 -replay /panda_class_materials/replays/boot -panda stringsearch:str="Linux version 3.2.0-4-686-pae",verbose=1
 
 You should see output something like this.
 
