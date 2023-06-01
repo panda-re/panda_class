@@ -76,6 +76,8 @@ Now, from within that docker container, we will use PANDA to boot an operating s
 
 **CUE #1: Boot Linux with PANDA**
 
+<a id="cue-1"> CUE 1 </a>
+
 Start a timer and then enter the following in your docker shell.
 
     panda-system-i386 -nographic /panda_class_materials/qcows/wheezy.qcow2 
